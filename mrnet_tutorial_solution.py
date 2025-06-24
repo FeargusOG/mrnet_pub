@@ -62,6 +62,7 @@ plane = "sagittal"
 lr = 1e-5
 epochs = 50
 batch_size = 1
+num_workers = 2
 TRAIN_N = None  # dev subsample, set to None to use all
 
 ######################
@@ -103,8 +104,8 @@ def load_numpy(x):
 train_ds = Dataset(data=train_data, transform=Compose([load_numpy, train_transforms]))
 val_ds = Dataset(data=val_data, transform=Compose([load_numpy, val_transforms]))
 
-train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
-val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)
+train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 model = Net().to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.1)

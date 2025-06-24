@@ -67,6 +67,9 @@ TRAIN_N = None  # dev subsample, set to None to use all
 ######################
 #       Setup        #
 ######################
+device = get_best_device()
+print(f"\n******* DEVICE - {device} *******\n")
+
 train_transforms = Compose([
     RandAffined(keys="image", prob=1.0, rotate_range=(0, 0, np.pi/8), translate_range=(0.1, 0.1, 0.0)),
     RandFlipd(keys="image", spatial_axis=0, prob=0.5),
@@ -78,8 +81,14 @@ val_transforms = Compose([
 ])
 
 train_data = load_mrnet_data(root, task, plane, train=True)
+labels = [int(x["label"][0]) for x in train_data]
+pos = sum(labels)
+neg = len(labels) - pos
+pos_weight = torch.tensor([neg / pos]).to(device) # Global calss weight.
+
 if TRAIN_N is not None:
     train_data = train_data[:TRAIN_N]
+
 val_data = load_mrnet_data(root, task, plane, train=False)
 
 def load_numpy(x):
@@ -95,8 +104,6 @@ val_ds = CacheDataset(data=val_data, transform=Compose([load_numpy, val_transfor
 train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
 val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)
 
-device = get_best_device()
-print(f"\n******* DEVICE - {device} *******\n")
 model = Net().to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.1)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, factor=0.3, threshold=1e-4)
@@ -119,7 +126,7 @@ for epoch in range(epochs):
         optimizer.zero_grad()
         pred = model(x).squeeze(0)
         y = y.view(-1)
-        loss = F.binary_cross_entropy_with_logits(pred, y)
+        loss = F.binary_cross_entropy_with_logits(pred, y, pos_weight=pos_weight)
         loss.backward()
         optimizer.step()
 

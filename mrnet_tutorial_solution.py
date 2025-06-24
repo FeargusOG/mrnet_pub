@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import models
 from monai.transforms import Compose, RandAffined, RandFlipd, ToTensord
-from monai.data import Dataset, CacheDataset
+from monai.data import Dataset
 from sklearn import metrics
 from tqdm import tqdm
 
@@ -67,7 +67,9 @@ TRAIN_N = None  # dev subsample, set to None to use all
 ######################
 #       Setup        #
 ######################
-device = get_best_device()
+# device = get_best_device()
+torch.cuda.set_device(1)
+device = torch.device("cuda:1")
 print(f"\n******* DEVICE - {device} *******\n")
 
 train_transforms = Compose([
@@ -98,8 +100,8 @@ def load_numpy(x):
     x["image"] = array
     return x
 
-train_ds = CacheDataset(data=train_data, transform=Compose([load_numpy, train_transforms]), cache_rate=1.0)
-val_ds = CacheDataset(data=val_data, transform=Compose([load_numpy, val_transforms]), cache_rate=1.0)
+train_ds = Dataset(data=train_data, transform=Compose([load_numpy, train_transforms]))
+val_ds = Dataset(data=val_data, transform=Compose([load_numpy, val_transforms]))
 
 train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
 val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)

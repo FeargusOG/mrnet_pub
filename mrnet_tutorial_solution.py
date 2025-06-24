@@ -67,9 +67,9 @@ TRAIN_N = None  # dev subsample, set to None to use all
 ######################
 #       Setup        #
 ######################
-# device = get_best_device()
-torch.cuda.set_device(1)
-device = torch.device("cuda:1")
+device = get_best_device()
+# torch.cuda.set_device(1)
+# device = torch.device("cuda:1")
 print(f"\n******* DEVICE - {device} *******\n")
 
 train_transforms = Compose([

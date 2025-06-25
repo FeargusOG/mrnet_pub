@@ -43,7 +43,7 @@ def load_mrnet_data(root_dir, task, plane, train=True):
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.pretrained_model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
+        self.pretrained_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         self.classifier = nn.Linear(1000, 1)
 
     def forward(self, x):

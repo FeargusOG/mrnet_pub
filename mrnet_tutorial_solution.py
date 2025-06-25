@@ -92,7 +92,7 @@ train_transforms = Compose([
     RandGaussianNoised(keys="image", prob=0.3, mean=0.0, std=0.1),
     RandScaleIntensityd(keys="image", prob=0.5, factors=0.2),
     RandShiftIntensityd(keys="image", prob=0.5, offsets=0.1),
-    RandZoomd(keys="image", prob=0.3, min_zoom=0.9, max_zoom=1.1, mode="bilinear", padding_mode="border", keep_size=True),
+    RandZoomd(keys="image", prob=0.3, min_zoom=0.9, max_zoom=1.1, mode="bilinear", padding_mode="edge", keep_size=True),
     ToTensord(keys=["image", "label"])
 ])
 

@@ -7,7 +7,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import models
-from monai.transforms import Compose, RandAffined, RandFlipd, ToTensord
+from monai.transforms import (
+    Compose, RandAffined, RandFlipd, ToTensord, RandGaussianNoised,
+    RandScaleIntensityd, RandShiftIntensityd, RandZoomd
+)
 from monai.data import Dataset
 from sklearn import metrics
 from tqdm import tqdm
@@ -77,8 +80,19 @@ device = get_best_device()
 print(f"\n******* DEVICE - {device} *******\n")
 
 train_transforms = Compose([
-    RandAffined(keys="image", prob=1.0, rotate_range=(0, 0, np.pi/8), translate_range=(0.1, 0.1, 0.0)),
+    RandAffined(
+        keys="image",
+        prob=1.0,
+        rotate_range=(0, 0, np.pi / 8),
+        translate_range=(0.1, 0.1, 0.0),
+        scale_range=(0.1, 0.1, 0.0),
+        padding_mode="border"
+    ),
     RandFlipd(keys="image", spatial_axis=0, prob=0.5),
+    RandGaussianNoised(keys="image", prob=0.3, mean=0.0, std=0.1),
+    RandScaleIntensityd(keys="image", prob=0.5, factors=0.2),
+    RandShiftIntensityd(keys="image", prob=0.5, offsets=0.1),
+    RandZoomd(keys="image", prob=0.3, min_zoom=0.9, max_zoom=1.1, mode="bilinear", padding_mode="border", keep_size=True),
     ToTensord(keys=["image", "label"])
 ])
 

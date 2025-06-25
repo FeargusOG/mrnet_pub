@@ -53,7 +53,7 @@ class Net(nn.Module):
     def forward(self, x):
         x = torch.squeeze(x, dim=0)  # (slices, 3, 256, 256)
         x = self.pretrained_model(x)
-        x = torch.max(x, dim=0, keepdim=True)[0]  # (1, 1000)
+        x = torch.mean(x, dim=0, keepdim=True)  # (1, 1000)
         x = F.relu(x)
         x = self.dropout(x)
         return self.classifier(x)  # (1, 1)

@@ -44,6 +44,7 @@ class Net(nn.Module):
     def __init__(self):
         super().__init__()
         self.pretrained_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        self.dropout = nn.Dropout(p=0.5) # Seeing overfitting, will try regularisation
         self.classifier = nn.Linear(1000, 1)
 
     def forward(self, x):
@@ -51,6 +52,7 @@ class Net(nn.Module):
         x = self.pretrained_model(x)
         x = torch.max(x, dim=0, keepdim=True)[0]  # (1, 1000)
         x = F.relu(x)
+        x = self.dropout(x)
         return self.classifier(x)  # (1, 1)
 
 ######################

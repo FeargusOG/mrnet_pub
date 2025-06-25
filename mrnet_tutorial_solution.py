@@ -57,8 +57,8 @@ class Net(nn.Module):
 #       Params       #
 ######################
 root = "./data/"
-task = "acl"
-plane = "sagittal"
+task = "meniscus"
+plane = "coronal"
 lr = 1e-5
 epochs = 50
 batch_size = 1
@@ -69,8 +69,9 @@ TRAIN_N = None  # dev subsample, set to None to use all
 #       Setup        #
 ######################
 device = get_best_device()
-# torch.cuda.set_device(1)
-# device = torch.device("cuda:1")
+# GPU = 1
+# torch.cuda.set_device(GPU)
+# device = torch.device(f"cuda:{GPU}")
 print(f"\n******* DEVICE - {device} *******\n")
 
 train_transforms = Compose([

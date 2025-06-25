@@ -159,7 +159,7 @@ for epoch in range(epochs):
     val_auc = metrics.roc_auc_score(y_trues, y_preds) if len(set(y_trues)) > 1 else 0.5
     val_loss = np.mean(val_losses)
 
-    print(f"epoch: {epoch+1} | train loss: {np.mean(losses):.4f} | train auc: {train_auc:.4f} | val loss: {val_loss:.4f} | val auc: {val_auc:.4f}")
+    print(f"{task}[{plane}] - epoch: {epoch+1} | train loss: {np.mean(losses):.4f} | train auc: {train_auc:.4f} | val loss: {val_loss:.4f} | val auc: {val_auc:.4f}")
     print("-" * 30)
 
     if val_auc > best_val_auc:

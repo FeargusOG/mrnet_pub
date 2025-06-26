@@ -160,7 +160,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, fa
 ######################
 best_val_auc = 0
 early_stop = 0
-trigger = 5 # tightening this up to 5 cause we're seeing lots of overfitting.
+trigger = 10
 
 for epoch in range(epochs):
     model.train()

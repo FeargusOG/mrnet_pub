@@ -60,11 +60,9 @@ class Net(nn.Module):
     def __init__(self):
         super().__init__()
         self.pretrained_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.pretrained_model.fc = nn.Identity()
         self.conv = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=1)
         self.soft = nn.Softmax(2)
-        self.dropout = nn.Dropout(p=0.5)
-        self.classifer = nn.Linear(512, 1)
+        self.classifer = nn.Linear(1000, 1)
 
     def tile(a, dim, n_tile):
         init_dim = a.size(dim)
@@ -86,24 +84,19 @@ class Net(nn.Module):
         x = self.pretrained_model.layer2(x)
         x = self.pretrained_model.layer3(x)
         x = self.pretrained_model.layer4(x)
-
         attention = self.conv(x)
-        attention = self.soft(attention.view(*attention.size()[:2], -1)).view_as(attention)
+        attention =  self.soft(attention.view(*attention.size()[:2], -1)).view_as(attention)
         maximum = torch.max(attention.flatten(2), 2).values
-        maximum = Net.tile(maximum, 1, attention.shape[2] * attention.shape[3])
+        maximum = Net.tile(maximum, 1, attention.shape[2]*attention.shape[3])
         attention_norm = attention.flatten(2).flatten(1) / maximum
-        attention_norm = attention_norm.view_as(attention)
-
-        o = x * attention_norm
-
-        out = self.pretrained_model.avgpool(o)  # shape: (B, 512, 1, 1)
-        out = torch.flatten(out, 1)  # shape: (B, 512)
-
-        out = self.dropout(out)
-        output = self.classifer(out)  # shape: (B, 1)
+        attention_norm= torch.reshape(attention_norm, (attention.shape[0],attention.shape[1],attention.shape[2],attention.shape[3]))
+        o = x*attention_norm
+        out= self.pretrained_model.avgpool(o)
+        out = self.pretrained_model.fc(out.squeeze())
+        output = torch.max(out, 0, keepdim=True)[0]
+        output = self.classifer(output)
 
         return output
-
 
 ######################
 #       Params       #

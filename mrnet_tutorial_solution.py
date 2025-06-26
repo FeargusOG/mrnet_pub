@@ -180,7 +180,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, fa
 ######################
 best_val_auc = 0
 early_stop = 0
-trigger = 10
+trigger = 6
 
 for epoch in range(epochs):
     model.train()

@@ -46,7 +46,7 @@ def load_mrnet_data(root_dir, task, plane, train=True):
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.pretrained_model = models.resnet18(pretrained=True)
+        self.pretrained_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         self.conv = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=1)
         self.soft = nn.Softmax(2)
         self.classifer = nn.Linear(1000, 1)

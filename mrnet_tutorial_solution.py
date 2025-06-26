@@ -7,7 +7,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import models
-from monai.transforms import Compose, RandAffined, RandFlipd, ToTensord
+from monai.transforms import (
+    Compose, RandAffined, RandFlipd, ToTensord, RandGaussianNoised,
+    RandScaleIntensityd, RandShiftIntensityd, RandZoomd
+)
 from monai.data import Dataset
 from sklearn import metrics
 from tqdm import tqdm
@@ -44,14 +47,43 @@ class Net(nn.Module):
     def __init__(self):
         super().__init__()
         self.pretrained_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.classifier = nn.Linear(1000, 1)
+        self.conv = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=1)
+        self.soft = nn.Softmax(2)
+        self.classifer = nn.Linear(1000, 1)
+
+    def tile(a, dim, n_tile):
+        init_dim = a.size(dim)
+        repeat_idx = [1] * a.dim()
+        repeat_idx[dim] = n_tile
+        a = a.repeat(*(repeat_idx))
+        order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)]))
+        if torch.cuda.is_available():
+            a = a.cuda()
+            order_index = order_index.cuda()
+        return torch.index_select(a, dim, order_index)
 
     def forward(self, x):
-        x = torch.squeeze(x, dim=0)  # (slices, 3, 256, 256)
-        x = self.pretrained_model(x)
-        x = torch.max(x, dim=0, keepdim=True)[0]  # (1, 1000)
-        x = F.relu(x)
-        return self.classifier(x)  # (1, 1)
+        x = torch.squeeze(x, dim=0)
+        x = self.pretrained_model.conv1(x)
+        x = self.pretrained_model.bn1(x)
+        x = self.pretrained_model.maxpool(x)
+        x = self.pretrained_model.layer1(x)
+        x = self.pretrained_model.layer2(x)
+        x = self.pretrained_model.layer3(x)
+        x = self.pretrained_model.layer4(x)
+        attention = self.conv(x)
+        attention =  self.soft(attention.view(*attention.size()[:2], -1)).view_as(attention)
+        maximum = torch.max(attention.flatten(2), 2).values
+        maximum = Net.tile(maximum, 1, attention.shape[2]*attention.shape[3])
+        attention_norm = attention.flatten(2).flatten(1) / maximum
+        attention_norm= torch.reshape(attention_norm, (attention.shape[0],attention.shape[1],attention.shape[2],attention.shape[3]))
+        o = x*attention_norm
+        out= self.pretrained_model.avgpool(o)
+        out = self.pretrained_model.fc(out.squeeze())
+        output = torch.max(out, 0, keepdim=True)[0]
+        output = self.classifer(output)
+
+        return output
 
 ######################
 #       Params       #
@@ -75,8 +107,19 @@ device = get_best_device()
 print(f"\n******* DEVICE - {device} *******\n")
 
 train_transforms = Compose([
-    RandAffined(keys="image", prob=1.0, rotate_range=(0, 0, np.pi/8), translate_range=(0.1, 0.1, 0.0)),
+    RandAffined(
+        keys="image",
+        prob=1.0,
+        rotate_range=(0, 0, np.pi / 8),
+        translate_range=(0.1, 0.1, 0.0),
+        scale_range=(0.1, 0.1, 0.0),
+        padding_mode="border"
+    ),
     RandFlipd(keys="image", spatial_axis=0, prob=0.5),
+    RandGaussianNoised(keys="image", prob=0.3, mean=0.0, std=0.1),
+    RandScaleIntensityd(keys="image", prob=0.5, factors=0.2),
+    RandShiftIntensityd(keys="image", prob=0.5, offsets=0.1),
+    RandZoomd(keys="image", prob=0.3, min_zoom=0.9, max_zoom=1.1, mode="bilinear", padding_mode="edge", keep_size=True),
     ToTensord(keys=["image", "label"])
 ])
 
@@ -117,7 +160,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, fa
 ######################
 best_val_auc = 0
 early_stop = 0
-trigger = 10
+trigger = 5 # tightening this up to 5 cause we're seeing lots of overfitting.
 
 for epoch in range(epochs):
     model.train()

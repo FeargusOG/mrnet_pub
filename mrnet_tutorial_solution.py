@@ -11,9 +11,22 @@ from monai.transforms import (
     Compose, RandAffined, RandFlipd, ToTensord, RandGaussianNoised,
     RandScaleIntensityd, RandShiftIntensityd, RandZoomd
 )
+from monai.utils import set_determinism
 from monai.data import Dataset
 from sklearn import metrics
 from tqdm import tqdm
+import random
+
+def seed_all(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+seed_all(42)
+set_determinism(seed=42)
 
 ######################
 #       Utils        #
@@ -148,8 +161,8 @@ def load_numpy(x):
 train_ds = Dataset(data=train_data, transform=Compose([load_numpy, train_transforms]))
 val_ds = Dataset(data=val_data, transform=Compose([load_numpy, val_transforms]))
 
-train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, generator=torch.Generator().manual_seed(42))
+val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, generator=torch.Generator().manual_seed(42))
 
 model = Net().to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.1)

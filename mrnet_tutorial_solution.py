@@ -59,44 +59,42 @@ def load_mrnet_data(root_dir, task, plane, train=True):
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.pretrained_model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.conv = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=1)
+        self.pretrained_model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
+        self.features = self.pretrained_model.features  # EfficientNet feature extractor
+        self.conv = nn.Conv2d(in_channels=1280, out_channels=1280, kernel_size=1)  # 1280 is the final feature dim
         self.soft = nn.Softmax(2)
-        self.classifer = nn.Linear(1000, 1)
+        self.dropout = nn.Dropout(p=0.5)
+        self.classifier = nn.Linear(1280, 1)
 
+    @staticmethod
     def tile(a, dim, n_tile):
         init_dim = a.size(dim)
         repeat_idx = [1] * a.dim()
         repeat_idx[dim] = n_tile
-        a = a.repeat(*(repeat_idx))
-        order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)]))
-        if torch.cuda.is_available():
-            a = a.cuda()
+        a = a.repeat(*repeat_idx)
+        order_index = torch.LongTensor(np.concatenate([
+            init_dim * np.arange(n_tile) + i for i in range(init_dim)
+        ]))
+        if a.is_cuda:
             order_index = order_index.cuda()
         return torch.index_select(a, dim, order_index)
 
     def forward(self, x):
         x = torch.squeeze(x, dim=0)
-        x = self.pretrained_model.conv1(x)
-        x = self.pretrained_model.bn1(x)
-        x = self.pretrained_model.maxpool(x)
-        x = self.pretrained_model.layer1(x)
-        x = self.pretrained_model.layer2(x)
-        x = self.pretrained_model.layer3(x)
-        x = self.pretrained_model.layer4(x)
+        x = self.features(x)  # shape: [batch, 1280, H, W]
         attention = self.conv(x)
-        attention =  self.soft(attention.view(*attention.size()[:2], -1)).view_as(attention)
+        attention = self.soft(attention.view(*attention.size()[:2], -1)).view_as(attention)
         maximum = torch.max(attention.flatten(2), 2).values
-        maximum = Net.tile(maximum, 1, attention.shape[2]*attention.shape[3])
+        maximum = Net.tile(maximum, 1, attention.shape[2] * attention.shape[3])
         attention_norm = attention.flatten(2).flatten(1) / maximum
-        attention_norm= torch.reshape(attention_norm, (attention.shape[0],attention.shape[1],attention.shape[2],attention.shape[3]))
-        o = x*attention_norm
-        out= self.pretrained_model.avgpool(o)
-        out = self.pretrained_model.fc(out.squeeze())
-        output = torch.max(out, 0, keepdim=True)[0]
-        output = self.classifer(output)
-
+        attention_norm = attention_norm.view_as(attention)
+        x = x * attention_norm
+        x = torch.nn.functional.adaptive_avg_pool2d(x, 1).squeeze(-1).squeeze(-1)  # [batch, 1280]
+        x = torch.max(x, dim=0, keepdim=True)[0]  # [1, 1280]
+        x = self.dropout(x)
+        output = self.classifier(x)  # [1, 1]
         return output
+
 
 ######################
 #       Params       #

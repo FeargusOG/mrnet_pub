@@ -63,6 +63,7 @@ class Net(nn.Module):
         self.conv = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=1)
         self.soft = nn.Softmax(2)
         self.classifer = nn.Linear(1000, 1)
+        self.dropout = nn.Dropout(p=0.5)
 
     def tile(a, dim, n_tile):
         init_dim = a.size(dim)
@@ -94,6 +95,7 @@ class Net(nn.Module):
         out= self.pretrained_model.avgpool(o)
         out = self.pretrained_model.fc(out.squeeze())
         output = torch.max(out, 0, keepdim=True)[0]
+        output = self.dropout(output)
         output = self.classifer(output)
 
         return output
@@ -173,7 +175,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, fa
 ######################
 best_val_auc = 0
 early_stop = 0
-trigger = 10
+trigger = 6
 
 for epoch in range(epochs):
     model.train()

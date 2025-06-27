@@ -6,10 +6,26 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import models
-from monai.transforms import Compose, RandAffined, RandFlipd, ToTensord
-from monai.data import Dataset, CacheDataset
+from monai.transforms import (
+    Compose, RandAffined, RandFlipd, ToTensord, RandGaussianNoised,
+    RandScaleIntensityd, RandShiftIntensityd, RandZoomd
+)
+from monai.utils import set_determinism
+from monai.data import Dataset
 from sklearn import metrics
 from tqdm import tqdm
+import random
+
+def seed_all(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+seed_all(42)
+set_determinism(seed=42)
 
 ###########################
 #       Utilities         #
@@ -106,12 +122,24 @@ def main():
     lr = 1e-5
     epochs = 50
     batch_size = 1
+    num_workers = 8
     TRAIN_N = None
 
     # --- Setup ---
     train_transforms = Compose([
-        RandAffined(keys="image", prob=1.0, rotate_range=(0, 0, np.pi/8), translate_range=(0.1, 0.1, 0.0)),
+        RandAffined(
+            keys="image",
+            prob=1.0,
+            rotate_range=(0, 0, np.pi / 8),
+            translate_range=(0.1, 0.1, 0.0),
+            scale_range=(0.1, 0.1, 0.0),
+            padding_mode="border"
+        ),
         RandFlipd(keys="image", spatial_axis=0, prob=0.5),
+        RandGaussianNoised(keys="image", prob=0.3, mean=0.0, std=0.1),
+        RandScaleIntensityd(keys="image", prob=0.5, factors=0.2),
+        RandShiftIntensityd(keys="image", prob=0.5, offsets=0.1),
+        RandZoomd(keys="image", prob=0.3, min_zoom=0.9, max_zoom=1.1, mode="bilinear", padding_mode="edge", keep_size=True),
         ToTensord(keys=["image", "label"])
     ])
 
@@ -124,11 +152,11 @@ def main():
         train_data = train_data[:TRAIN_N]
     val_data = load_mrnet_data(root, plane, train=False)
 
-    train_ds = CacheDataset(data=train_data, transform=Compose([load_numpy, train_transforms]), cache_rate=1.0)
-    val_ds = CacheDataset(data=val_data, transform=Compose([load_numpy, val_transforms]), cache_rate=1.0)
+    train_ds = Dataset(data=train_data, transform=Compose([load_numpy, train_transforms]))
+    val_ds = Dataset(data=val_data, transform=Compose([load_numpy, val_transforms]))
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, generator=torch.Generator().manual_seed(42))
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, generator=torch.Generator().manual_seed(42))
 
     device = get_best_device()
     print(f"\n******* DEVICE - {device} *******\n")
@@ -192,6 +220,7 @@ def main():
         val_loss = np.mean(val_losses)
 
         print(f"Epoch {epoch+1}/{epochs}")
+        print(f"Plane: {plane}")
         print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         print(f"Train AUCs - Abnormal: {train_auc[0]:.4f}, ACL: {train_auc[1]:.4f}, Meniscus: {train_auc[2]:.4f}")
         print(f"Val   AUCs - Abnormal: {val_auc[0]:.4f}, ACL: {val_auc[1]:.4f}, Meniscus: {val_auc[2]:.4f}")

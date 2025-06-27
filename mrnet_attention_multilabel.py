@@ -121,12 +121,12 @@ class Net(nn.Module):
 
 def main():
     # --- Params ---
-    root = "/mnt/8TB/adoloc/MRNet/MRNet-v1.0"
+    root = "/mnt/8TB/fogorman/mrnet_pub/data"
     plane = "coronal"
     lr = 1e-5
     epochs = 50
     batch_size = 1
-    num_workers = 8
+    num_workers = 5
     TRAIN_N = None
 
     # --- Setup ---
@@ -166,7 +166,7 @@ def main():
     print(f"\n******* DEVICE - {device} *******\n")
 
     model = Net().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.1)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, factor=0.3, threshold=1e-4)
 
     # Class weights
@@ -180,7 +180,7 @@ def main():
 
     best_val_auc = 0
     early_stop = 0
-    trigger = 10
+    trigger = 5
 
     writer = SummaryWriter(log_dir=f"runs/{plane}")
 

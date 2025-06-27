@@ -16,6 +16,8 @@ from sklearn import metrics
 from tqdm import tqdm
 import random
 
+from torch.utils.tensorboard import SummaryWriter
+
 def seed_all(seed=42):
     random.seed(seed)
     np.random.seed(seed)
@@ -120,7 +122,7 @@ class Net(nn.Module):
 def main():
     # --- Params ---
     root = "/mnt/8TB/adoloc/MRNet/MRNet-v1.0"
-    plane = "sagittal"
+    plane = "coronal"
     lr = 1e-5
     epochs = 50
     batch_size = 1
@@ -166,11 +168,21 @@ def main():
     model = Net().to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.1)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, factor=0.3, threshold=1e-4)
-    criterion = nn.BCEWithLogitsLoss()
+
+    # Class weights
+    train_df = pd.DataFrame(train_data)
+    labels = np.stack(train_df["label"].values)
+    label_sums = labels.sum(axis=0)             # count of positives per class
+    label_counts = len(labels) - label_sums     # count of negatives per class
+    pos_weight = torch.tensor(label_counts / label_sums, dtype=torch.float32).to(device)
+
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     best_val_auc = 0
     early_stop = 0
     trigger = 10
+
+    writer = SummaryWriter(log_dir=f"runs/{plane}")
 
     for epoch in range(epochs):
         model.train()
@@ -197,6 +209,11 @@ def main():
         y_trues = np.vstack(y_trues)
         train_auc = [metrics.roc_auc_score(y_trues[:, i], y_preds[:, i]) for i in range(3)]
         train_loss = np.mean(losses)
+
+        writer.add_scalar("Loss/Train", train_loss, epoch)
+        writer.add_scalar("AUC/Train_Abnormal", train_auc[0], epoch)
+        writer.add_scalar("AUC/Train_ACL", train_auc[1], epoch)
+        writer.add_scalar("AUC/Train_Meniscus", train_auc[2], epoch)
 
         # === VALIDATION ===
         model.eval()
@@ -228,6 +245,11 @@ def main():
         print(f"Val   AUCs - Abnormal: {val_auc[0]:.4f}, ACL: {val_auc[1]:.4f}, Meniscus: {val_auc[2]:.4f}")
         print("-" * 60)
 
+        writer.add_scalar("Loss/Val", val_loss, epoch)
+        writer.add_scalar("AUC/Val_Abnormal", val_auc[0], epoch)
+        writer.add_scalar("AUC/Val_ACL", val_auc[1], epoch)
+        writer.add_scalar("AUC/Val_Meniscus", val_auc[2], epoch)
+
         mean_val_auc = np.mean(val_auc)
         if mean_val_auc > best_val_auc:
             best_val_auc = mean_val_auc
@@ -241,6 +263,8 @@ def main():
         if early_stop == trigger:
             print(f"Early stopping after {epoch+1} epochs")
             break
+    
+    writer.close()
 
 if __name__ == "__main__":
     main()

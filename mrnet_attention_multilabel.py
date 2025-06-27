@@ -102,6 +102,7 @@ class Net(nn.Module):
         resnet.fc = nn.Identity()
         self.feature_extractor = resnet
         self.attention = SliceAttention(input_dim=512)
+        self.dropout = nn.Dropout(p=0.5)
         self.classifier = nn.Linear(512, 3)
 
     def forward(self, x):
@@ -109,7 +110,8 @@ class Net(nn.Module):
         x = torch.squeeze(x, dim=0)  # (slices, 3, 256, 256)
         features = self.feature_extractor(x)  # (slices, 512)
         pooled = self.attention(features)     # (1, 512)
-        return self.classifier(pooled)        # (1, 3)
+        dropped = self.dropout(pooled)        # (1, 512)
+        return self.classifier(dropped)       # (1, 3)
 
 ###########################
 #       Training Loop     #

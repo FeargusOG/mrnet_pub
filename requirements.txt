@@ -1,3 +1,4 @@
+absl-py==2.3.0
 antspyx==0.5.4
 appnope==0.1.4
 asttokens==3.0.0
@@ -24,6 +25,7 @@ google-cloud-storage==3.1.1
 google-crc32c==1.7.1
 google-resumable-media==2.7.2
 googleapis-common-protos==1.70.0
+grpcio==1.73.1
 h5py==3.14.0
 httplib2==0.22.0
 idna==3.10
@@ -38,6 +40,7 @@ jsonpointer==3.0.0
 jupyter_client==8.6.3
 jupyter_core==5.8.1
 kiwisolver==1.4.8
+Markdown==3.8.2
 MarkupSafe==3.0.2
 matplotlib==3.10.3
 matplotlib-inline==0.1.7
@@ -79,6 +82,8 @@ six==1.17.0
 stack-data==0.6.3
 statsmodels==0.14.4
 sympy==1.13.1
+tensorboard==2.19.0
+tensorboard-data-server==0.7.2
 tensorboardX==2.6.4
 threadpoolctl==3.6.0
 torch==2.6.0
@@ -95,3 +100,4 @@ visdom==0.2.4
 wcwidth==0.2.13
 webcolors==24.11.1
 websocket-client==1.8.0
+Werkzeug==3.1.3

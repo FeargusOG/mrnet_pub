@@ -75,7 +75,7 @@ def load_numpy(x):
     return x
 
 ###########################
-#      Attention Layer    #
+#    Attention Modules    #
 ###########################
 
 class SliceAttention(nn.Module):
@@ -93,6 +93,25 @@ class SliceAttention(nn.Module):
         weighted = x * weights              # (slices, 512)
         return weighted.sum(dim=0, keepdim=True)  # (1, 512)
 
+class SpatialAttention(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=1)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):  # x: (512, H, W)
+        attn = self.conv(x)                            # (512, H, W)
+        B, H, W = attn.shape                           # (512, H, W)
+
+        attn_flat = attn.view(B, -1)                   # (512, H*W)
+        attn_soft = self.softmax(attn_flat)            # (512, H*W)
+
+        max_vals = attn_soft.max(dim=1, keepdim=True)[0]  # (512, 1)
+        attn_norm = attn_soft / (max_vals + 1e-6)         # (512, H*W), avoid div-by-zero
+
+        attn_final = attn_norm.view(B, H, W)           # (512, H, W)
+        return x * attn_final                          # (512, H, W)
+
 ###########################
 #         Model           #
 ###########################
@@ -101,19 +120,26 @@ class Net(nn.Module):
     def __init__(self):
         super().__init__()
         resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        resnet.fc = nn.Identity()
-        self.feature_extractor = resnet
-        self.attention = SliceAttention(input_dim=512)
+        self.backbone = nn.Sequential(*list(resnet.children())[:-2])  # up to layer4 (no avgpool or fc)
+        self.spatial_attention = SpatialAttention()
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.slice_attention = SliceAttention(input_dim=512)
         self.dropout = nn.Dropout(p=0.5)
         self.classifier = nn.Linear(512, 3)
 
     def forward(self, x):
-        # x: (1, slices, 3, 256, 256)
         x = torch.squeeze(x, dim=0)  # (slices, 3, 256, 256)
-        features = self.feature_extractor(x)  # (slices, 512)
-        pooled = self.attention(features)     # (1, 512)
-        dropped = self.dropout(pooled)        # (1, 512)
-        return self.classifier(dropped)       # (1, 3)
+        features = []
+        for slice_img in x:  # each slice_img: (3, 256, 256)
+            feat = self.backbone(slice_img.unsqueeze(0)).squeeze(0)  # (512, H, W)
+            feat = self.spatial_attention(feat)  # (512, H, W)
+            pooled = self.pool(feat).view(-1)   # (512,)
+            features.append(pooled)
+
+        features = torch.stack(features)        # (slices, 512)
+        attended = self.slice_attention(features)  # (1, 512)
+        dropped = self.dropout(attended)
+        return self.classifier(dropped)         # (1, 3)
 
 ###########################
 #       Training Loop     #
@@ -121,12 +147,12 @@ class Net(nn.Module):
 
 def main():
     # --- Params ---
-    root = "/mnt/8TB/fogorman/mrnet_pub/data"
-    plane = "coronal"
+    root = "/mnt/8TB/adoloc/MRNet/MRNet-v1.0"
+    plane = "sagittal"
     lr = 1e-5
     epochs = 50
     batch_size = 1
-    num_workers = 5
+    num_workers = 8
     TRAIN_N = None
 
     # --- Setup ---
@@ -166,7 +192,7 @@ def main():
     print(f"\n******* DEVICE - {device} *******\n")
 
     model = Net().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.1)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, factor=0.3, threshold=1e-4)
 
     # Class weights
@@ -180,7 +206,7 @@ def main():
 
     best_val_auc = 0
     early_stop = 0
-    trigger = 5
+    trigger = 10
 
     writer = SummaryWriter(log_dir=f"runs/{plane}")
 

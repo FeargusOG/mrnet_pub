@@ -149,6 +149,7 @@ def main():
     # --- Params ---
     root = "/mnt/8TB/adoloc/MRNet/MRNet-v1.0"
     plane = "sagittal"
+    run_title = "baseline"
     lr = 1e-5
     epochs = 50
     batch_size = 1
@@ -208,7 +209,7 @@ def main():
     early_stop = 0
     trigger = 10
 
-    writer = SummaryWriter(log_dir=f"runs/{plane}")
+    writer = SummaryWriter(log_dir=f"runs/{run_title}_{plane}")
 
     for epoch in range(epochs):
         model.train()
@@ -235,11 +236,6 @@ def main():
         y_trues = np.vstack(y_trues)
         train_auc = [metrics.roc_auc_score(y_trues[:, i], y_preds[:, i]) for i in range(3)]
         train_loss = np.mean(losses)
-
-        writer.add_scalar("Loss/Train", train_loss, epoch)
-        writer.add_scalar("AUC/Train_Abnormal", train_auc[0], epoch)
-        writer.add_scalar("AUC/Train_ACL", train_auc[1], epoch)
-        writer.add_scalar("AUC/Train_Meniscus", train_auc[2], epoch)
 
         # === VALIDATION ===
         model.eval()
@@ -271,16 +267,30 @@ def main():
         print(f"Val   AUCs - Abnormal: {val_auc[0]:.4f}, ACL: {val_auc[1]:.4f}, Meniscus: {val_auc[2]:.4f}")
         print("-" * 60)
 
+        # Report metrics to tensorboard
+        writer.add_scalar("Loss/Train", train_loss, epoch)
         writer.add_scalar("Loss/Val", val_loss, epoch)
-        writer.add_scalar("AUC/Val_Abnormal", val_auc[0], epoch)
-        writer.add_scalar("AUC/Val_ACL", val_auc[1], epoch)
-        writer.add_scalar("AUC/Val_Meniscus", val_auc[2], epoch)
+
+        writer.add_scalars("AUC/Abnormal", {
+            "Train": train_auc[0],
+            "Val": val_auc[0],
+        }, epoch)
+        
+        writer.add_scalars("AUC/ACL", {
+            "Train": train_auc[1],
+            "Val": val_auc[1],
+        }, epoch)
+
+        writer.add_scalars("AUC/Meniscus", {
+            "Train": train_auc[2],
+            "Val": val_auc[2],
+        }, epoch)
 
         mean_val_auc = np.mean(val_auc)
         if mean_val_auc > best_val_auc:
             best_val_auc = mean_val_auc
             early_stop = 0
-            torch.save(model.state_dict(), "best_model_attention.pt")
+            torch.save(model.state_dict(), f"model_multi_{run_title}_{plane}.pt")
         else:
             early_stop += 1
 

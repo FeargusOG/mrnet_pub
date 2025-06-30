@@ -147,9 +147,12 @@ class Net(nn.Module):
 
 def main():
     # --- Params ---
-    root = "/mnt/8TB/adoloc/MRNet/MRNet-v1.0"
+    root = "/mnt/8TB/fogorman/mrnet_pub/data"
     plane = "sagittal"
     run_title = "baseline"
+    save_dir = f"runs/{run_title}_{plane}"
+    os.makedirs(save_dir, exist_ok=True)
+    
     lr = 1e-5
     epochs = 50
     batch_size = 1
@@ -209,7 +212,7 @@ def main():
     early_stop = 0
     trigger = 10
 
-    writer = SummaryWriter(log_dir=f"runs/{run_title}_{plane}")
+    writer = SummaryWriter(log_dir=save_dir)
 
     for epoch in range(epochs):
         model.train()
@@ -290,7 +293,7 @@ def main():
         if mean_val_auc > best_val_auc:
             best_val_auc = mean_val_auc
             early_stop = 0
-            torch.save(model.state_dict(), f"model_multi_{run_title}_{plane}.pt")
+            torch.save(model.state_dict(), save_dir+"/best_model.pt")
         else:
             early_stop += 1
 

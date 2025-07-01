@@ -266,8 +266,8 @@ def main():
         print(f"Epoch {epoch+1}/{epochs}")
         print(f"Plane: {plane}")
         print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-        print(f"Train AUCs - Abnormal: {train_auc[0]:.4f}, ACL: {train_auc[1]:.4f}, Meniscus: {train_auc[2]:.4f}")
-        print(f"Val   AUCs - Abnormal: {val_auc[0]:.4f}, ACL: {val_auc[1]:.4f}, Meniscus: {val_auc[2]:.4f}")
+        print(f"Train AUCs - Abnormal: {train_auc[0]:.4f}, ACL: {train_auc[1]:.4f}, Meniscus: {train_auc[2]:.4f}, Mean {np.mean(train_auc)}")
+        print(f"Val   AUCs - Abnormal: {val_auc[0]:.4f}, ACL: {val_auc[1]:.4f}, Meniscus: {val_auc[2]:.4f}, Mean {np.mean(val_auc)}")
         print("-" * 60)
 
         # Report metrics to tensorboard
@@ -293,6 +293,7 @@ def main():
         if mean_val_auc > best_val_auc:
             best_val_auc = mean_val_auc
             early_stop = 0
+            print(f"Current Best Val AUC: {best_val_auc}")
             torch.save(model.state_dict(), save_dir+"/best_model.pt")
         else:
             early_stop += 1

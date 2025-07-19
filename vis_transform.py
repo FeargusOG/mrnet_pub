@@ -39,7 +39,7 @@ transforms = [
         padding_mode="border"
     )),
     ("RandZoomd", RandZoomd(keys="image", prob=1.0, min_zoom=0.9, max_zoom=1.1, mode="bilinear", padding_mode="edge", keep_size=True)),
-    ("RandFlipd", RandFlipd(keys="image", spatial_axis=0, prob=1.0)),
+    ("RandFlipd", RandFlipd(keys="image", spatial_axis=1, prob=1.0)),
     ("RandGaussianNoised", RandGaussianNoised(keys="image", prob=1.0, mean=0.0, std=0.1)),
     ("RandScaleIntensityd", RandScaleIntensityd(keys="image", prob=1.0, factors=0.2)),
     ("RandShiftIntensityd", RandShiftIntensityd(keys="image", prob=1.0, offsets=0.1)),

@@ -146,7 +146,7 @@ class Net(nn.Module):
 ###########################
 
 def main():
-    # --- Params ---
+    #  Params # 
     root = "/mnt/8TB/fogorman/mrnet_pub/data"
     plane = "sagittal"
     run_title = "baseline"
@@ -159,7 +159,7 @@ def main():
     num_workers = 8
     TRAIN_N = None
 
-    # --- Setup ---
+    #  Setup # 
     train_transforms = Compose([
         RandAffined(
             keys="image",
@@ -196,8 +196,11 @@ def main():
     print(f"\n******* DEVICE - {device} *******\n")
 
     model = Net().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=0.1)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4, factor=0.3, threshold=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-5, weight_decay=0.1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
+                                                           patience=4, 
+                                                           factor=0.3, 
+                                                           threshold=1e-4)
 
     # Class weights
     train_df = pd.DataFrame(train_data)
@@ -218,7 +221,7 @@ def main():
         model.train()
         y_trues, y_preds, losses = [], [], []
 
-        # === TRAIN ===
+        #  TRAIN # 
         for batch in tqdm(train_loader, desc=f"Epoch {epoch+1} [Train]"):
             x = batch["image"].to(device).float()  # (1, s, 3, 256, 256)
             y = batch["label"].to(device).float()  # (1, 3)
@@ -240,7 +243,7 @@ def main():
         train_auc = [metrics.roc_auc_score(y_trues[:, i], y_preds[:, i]) for i in range(3)]
         train_loss = np.mean(losses)
 
-        # === VALIDATION ===
+        #  VALIDATION # 
         model.eval()
         y_trues, y_preds, val_losses = [], [], []
 
